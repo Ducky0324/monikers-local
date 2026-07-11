@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monikers — Party Game</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root{
+  --ink:#12211C; --felt:#1E3A2E; --felt-light:#28493A;
+  --felt-line: rgba(246,240,226,0.08);
+  --cream:#F6F0E2; --paper:#FBF7EC;
+  --red:#E1483A; --blue:#3E6FDB; --gold:#D9A441; --teal:#2FA88A;
+  --ink-text:#17241F; --muted: rgba(246,240,226,0.6);
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:radial-gradient(ellipse at top, var(--felt-light), var(--felt) 60%, var(--ink) 100%);
+  min-height:100vh; font-family:'Inter',sans-serif; color:var(--cream);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+body::before{
+  content:""; position:fixed; inset:0;
+  background-image:repeating-linear-gradient(0deg, var(--felt-line) 0px, var(--felt-line) 1px, transparent 1px, transparent 3px);
+  opacity:.5; pointer-events:none;
+}
+.display{ font-family:'Anton',sans-serif; letter-spacing:.02em; text-transform:uppercase; }
+.mono{ font-family:'Space Mono', monospace; }
+.app{ width:100%; max-width:600px; position:relative; z-index:1; }
+.hidden{ display:none !important; }
+
+.frame{
+  background:var(--paper); color:var(--ink-text); border-radius:18px;
+  box-shadow:0 25px 60px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.15) inset;
+  padding:28px 24px; position:relative; overflow:hidden;
+}
+.frame::before{
+  content:""; position:absolute; top:0; left:0; right:0; height:8px;
+  background:repeating-linear-gradient(90deg, var(--red) 0 24px, var(--blue) 24px 48px, var(--gold) 48px 72px);
+}
+.eyebrow{
+  font-size:12px; font-weight:800; letter-spacing:.18em; text-transform:uppercase; color:var(--red);
+  display:flex; align-items:center; gap:8px; margin-bottom:6px;
+}
+.eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--red); }
+h1.display{ font-size:38px; line-height:.95; margin:0 0 6px; color:var(--ink-text); }
+h2.display{ font-size:24px; margin:0 0 4px; color:var(--ink-text); }
+p.lead{ color:#5b6a5f; font-size:15px; line-height:1.5; margin:0 0 20px; }
+label.field-label{ display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#6b7a6e; margin:16px 0 8px; }
+input[type=text], input[type=number], textarea{
+  width:100%; font-family:'Inter',sans-serif; font-size:15px; border:2px solid #E4DCC6; border-radius:10px;
+  padding:11px 13px; background:#fff; color:var(--ink-text); outline:none;
+}
+input[type=text]:focus, input[type=number]:focus, textarea:focus{ border-color:var(--red); }
+textarea{ resize:vertical; min-height:100px; line-height:1.5; }
+.btn{
+  font-family:'Inter',sans-serif; font-weight:700; font-size:15px; border:none; border-radius:10px;
+  padding:13px 20px; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn:active{ transform:scale(.97); }
+.btn-primary{ background:var(--red); color:#fff; box-shadow:0 6px 0 #a63023; }
+.btn-primary:hover{ box-shadow:0 4px 0 #a63023; transform:translateY(2px); }
+.btn-block{ width:100%; }
+.btn-ghost{ background:transparent; color:#5b6a5f; border:2px solid #E4DCC6; box-shadow:none; }
+.btn-ghost:hover{ border-color:#c9bd9c; }
+.btn-secondary{ background:var(--ink-text); color:var(--cream); box-shadow:0 6px 0 #05130d; }
+.btn-secondary:hover{ box-shadow:0 4px 0 #05130d; transform:translateY(2px); }
+.btn-sm{ padding:8px 12px; font-size:13px; border-radius:8px; }
+.btn:disabled{ opacity:.45; cursor:not-allowed; }
+.row{ display:flex; gap:10px; }
+.row > *{ flex:1; }
+
+.team-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.swatch{ width:34px; height:34px; border-radius:50%; flex:0 0 auto; border:3px solid rgba(0,0,0,.15); cursor:pointer; }
+.team-row input[type=text]{ flex:1; }
+.remove-team{ background:none; border:none; color:#b3a888; cursor:pointer; font-size:20px; padding:0 4px; line-height:1; }
+.remove-team:hover{ color:var(--red); }
+.deck-actions{ display:flex; gap:10px; margin-top:10px; }
+.deck-count{ font-size:13px; color:#6b7a6e; margin-top:8px; }
+
+.round-badge{
+  display:inline-flex; align-items:center; gap:10px; background:var(--ink-text); color:var(--cream);
+  padding:8px 16px; border-radius:100px; font-size:13px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; margin-bottom:16px;
+}
+.round-rules{ background:#F0E9D5; border-radius:12px; padding:16px 18px; margin:14px 0 20px; font-size:15px; line-height:1.55; color:#41503f; }
+
+.play-top{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; }
+.timer-ring-wrap{ position:relative; width:72px; height:72px; flex:0 0 auto; }
+.timer-ring-wrap svg{ transform:rotate(-90deg); }
+.timer-num{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700; }
+.deck-stack{ position:relative; height:230px; margin:12px 0 18px; display:flex; align-items:center; justify-content:center; }
+.stack-shadow{ position:absolute; width:88%; height:88%; background:#e7ddc1; border-radius:16px; transform:rotate(-6deg); top:6%; }
+.stack-shadow.s2{ background:#dcd0ac; transform:rotate(4deg); top:9%; }
+.card-face{
+  position:relative; width:92%; height:92%; background:var(--paper); border-radius:16px; border:2px solid #E4DCC6;
+  display:flex; align-items:center; justify-content:center; text-align:center; padding:16px; box-shadow:0 14px 30px rgba(0,0,0,.25);
+}
+.card-word{ font-size:clamp(26px,7vw,38px); font-weight:800; color:var(--ink-text); line-height:1.1; word-break:break-word; }
+.card-desc{ text-align:center; font-size:14px; line-height:1.5; color:#5b6a5f; font-style:italic; margin:0 0 14px; padding:0 6px; min-height:21px; }
+.card-desc.empty{ visibility:hidden; }
+.remaining-note{ text-align:center; font-size:13px; color:#8a9689; margin-bottom:14px; }
+.action-row{ display:flex; gap:12px; }
+.btn-skip{ background:#EFE7CE; color:#6b5c2e; box-shadow:0 6px 0 #cfc19a; flex:1; }
+.btn-skip:hover{ box-shadow:0 4px 0 #cfc19a; transform:translateY(2px); }
+.btn-correct{ background:var(--teal); color:#fff; box-shadow:0 6px 0 #1f7a63; flex:2; font-size:17px; }
+.btn-correct:hover{ box-shadow:0 4px 0 #1f7a63; transform:translateY(2px); }
+.end-turn-link{ display:block; text-align:center; margin-top:14px; font-size:13px; color:#9a8f6f; background:none; border:none; cursor:pointer; width:100%; }
+.end-turn-link:hover{ color:var(--red); }
+
+.status-pane{ text-align:center; padding:30px 10px; }
+.status-emoji{ font-size:44px; margin-bottom:10px; }
+.status-title{ font-size:22px; font-weight:800; margin:0 0 8px; }
+.status-sub{ color:#5b6a5f; font-size:15px; line-height:1.5; }
+.timer-inline{ margin-top:18px; font-size:34px; font-weight:800; }
+
+.got-list{ list-style:none; padding:0; margin:0 0 22px; display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.got-list li{ background:#EAF4EF; color:#1f7a63; border-radius:8px; padding:6px 11px; font-size:14px; font-weight:600; }
+
+.score-table{ width:100%; border-collapse:collapse; margin:14px 0 20px; }
+.score-table th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#8a9689; padding:6px 8px; border-bottom:2px solid #EFE7CE; }
+.score-table td{ padding:9px 8px; border-bottom:1px solid #EFE7CE; font-size:15px; }
+.score-table tr:last-child td{ border-bottom:none; }
+.team-name-cell{ display:flex; align-items:center; gap:8px; font-weight:700; }
+.mini-swatch{ width:12px; height:12px; border-radius:50%; flex:0 0 auto; }
+.total-cell{ font-weight:800; }
+.rank-cell{ font-size:18px; width:28px; text-align:center; }
+.winner-row td{ background:#FCF3DC; }
+.winner-row .team-name-cell{ color:#8a5a06; }
+
+.winner-banner{ background:linear-gradient(135deg, var(--gold), #c78a2c); color:#3a2a06; border-radius:14px; padding:20px; text-align:center; margin-bottom:20px; }
+.winner-banner .crown{ font-size:30px; }
+.winner-banner h2{ margin:6px 0 2px; font-size:26px; }
+
+.roster{ margin:6px 0 20px; }
+.roster-team{ margin-bottom:14px; }
+.roster-team-head{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:14px; margin-bottom:6px; }
+.roster-players{ list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px; }
+.roster-players li{ background:#F0E9D5; border-radius:100px; padding:5px 12px; font-size:13px; }
+.roster-players li.empty{ color:#a89b73; font-style:italic; background:none; padding:5px 0; }
+
+.join-team-pick{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.team-pick-btn{
+  border:2px solid #E4DCC6; background:#fff; border-radius:10px; padding:10px 14px; cursor:pointer;
+  font-weight:700; font-size:14px; display:flex; align-items:center; gap:8px;
+}
+.team-pick-btn.selected{ border-color:currentColor; background:#FBF3E4; }
+.team-pick-swatch{ width:12px; height:12px; border-radius:50%; }
+
+.footer-note{ text-align:center; color:var(--muted); font-size:12px; margin-top:16px; letter-spacing:.03em; }
+.error-note{ color:var(--red); font-size:13px; margin-top:10px; text-align:center; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<script>
+(function(){
+
+const TEAM_COLORS = ['#E1483A','#3E6FDB','#D9A441','#2FA88A','#8E5CD9','#D9548C'];
+const EXAMPLE_DECK = [
+  ["Albert Einstein","Physicist famous for the theory of relativity and wild hair"],
+  ["The Eiffel Tower","Iron lattice tower that defines the Paris skyline"],
+  ["Sherlock Holmes","Fictional detective known for his powers of deduction"],
+  ["Volcano","Mountain that can erupt with lava and ash"],
+  ["Pizza","Round baked dish topped with cheese and sauce"],
+  ["Yoga","Practice of stretching, breathing, and poses for calm"],
+  ["Cleopatra","Last active ruler of ancient Egypt"],
+  ["The Great Wall of China","Ancient fortification stretching thousands of miles"],
+  ["Dracula","Classic vampire count from Transylvania"],
+  ["Roller Coaster","Amusement park ride with steep drops and loops"],
+  ["William Shakespeare","Playwright who wrote Hamlet and Romeo and Juliet"],
+  ["Bigfoot","Legendary hairy creature said to roam the forest"],
+  ["Scuba Diving","Underwater activity using an oxygen tank"],
+  ["The Mona Lisa","Famous painting with a mysterious smile"],
+  ["Robin Hood","Legendary outlaw who steals from the rich"],
+  ["Marie Curie","Scientist who pioneered research on radioactivity"],
+  ["Quicksand","Loose wet sand that traps anything that steps in it"],
+  ["Bagpipes","Wind instrument famous in Scottish music"],
+  ["The Titanic","Ocean liner that sank after hitting an iceberg"],
+  ["Sasquatch","Another name for a legendary forest creature"],
+  ["Beekeeping","Hobby or job of raising bees for honey"],
+  ["King Arthur","Legendary king who pulled a sword from a stone"],
+  ["The Sahara Desert","Enormous hot sandy desert in Africa"],
+  ["Houdini","Famous escape artist and magician"],
+  ["Origami","Japanese art of paper folding"],
+  ["Leonardo da Vinci","Renaissance artist and inventor"],
+  ["Thunderstorm","Weather event with lightning and rain"],
+  ["Karate","Japanese martial art involving strikes and kicks"],
+  ["The Loch Ness Monster","Legendary creature said to live in a Scottish lake"],
+  ["Bubble Wrap","Plastic packing material people love to pop"]
+];
+
+// -------- identity --------
+function uuid(){
+  if(window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'p-' + Math.random().toString(36).slice(2) + Date.now();
+}
+let pid = localStorage.getItem('monikers_pid');
+if(!pid){ pid = uuid(); localStorage.setItem('monikers_pid', pid); }
+
+// -------- networking --------
+async function api(path, body){
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: Object.assign({'x-player-id': pid}, body ? {'Content-Type':'application/json'} : {}),
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || 'Something went wrong');
+  data.fetchedAt = Date.now();
+  return data;
+}
+
+// The server no longer ticks a countdown itself (serverless functions can't
+// run a background interval) — it hands us a turnEndsAt timestamp and we
+// compute the remaining seconds locally, correcting for clock skew using
+// serverNow from the same response.
+function clientTimeLeft(view){
+  if(view.phase !== 'play' || !view.turnEndsAt) return 0;
+  const skew = view.serverNow - view.fetchedAt; // server clock minus our clock, at fetch time
+  const adjustedNow = Date.now() + skew;
+  return Math.max(0, Math.ceil((view.turnEndsAt - adjustedNow) / 1000));
+}
+
+let lastView = null;
+let errorMsg = '';
+let localTeamRows = null; // used only on setup screen before submit
+let selectedJoinTeam = null;
+
+async function poll(){
+  try{
+    const view = await api('/api/state');
+    lastView = view;
+    render();
+  }catch(e){ /* server may be briefly unavailable; ignore */ }
+  setTimeout(poll, 700);
+}
+
+const app = document.getElementById('app');
+
+function el(html){
+  const div = document.createElement('div');
+  div.innerHTML = html.trim();
+  return div.firstElementChild;
+}
+
+// ================= SETUP SCREEN (host configures) =================
+function renderSetup(){
+  if(!localTeamRows){
+    localTeamRows = [
+      {name:'Team One', color: TEAM_COLORS[0]},
+      {name:'Team Two', color: TEAM_COLORS[1]}
+    ];
+  }
+  const teamsHtml = localTeamRows.map((t,i)=>`
+    <div class="team-row">
+      <input type="color" class="swatch" data-idx="${i}" data-role="color" value="${t.color}">
+      <input type="text" class="team-name-input" data-idx="${i}" data-role="name" value="${t.name}">
+      <button class="remove-team" data-idx="${i}" data-role="remove" type="button" title="Remove team">×</button>
+    </div>`).join('');
+
+  app.innerHTML = '';
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="eyebrow"><span class="dot"></span>Host Setup</div>
+      <h1 class="display">Monikers</h1>
+      <p class="lead">Set up teams and the deck once — then everyone else joins from their own phone.</p>
+      <label class="field-label">Teams</label>
+      <div id="team-list">${teamsHtml}</div>
+      <button class="btn btn-ghost btn-sm" id="add-team-btn" type="button">+ Add team</button>
+      <label class="field-label">Seconds per turn</label>
+      <input type="number" id="turn-length" value="60" min="15" max="180" step="5">
+      <label class="field-label">The deck</label>
+      <textarea id="deck-textarea" placeholder="One card per line. Add an optional hint after :: for the reader, e.g.&#10;Albert Einstein :: Physicist famous for the theory of relativity"></textarea>
+      <div class="deck-actions">
+        <button class="btn btn-ghost btn-sm" id="load-example-btn" type="button">Load example deck (30 cards)</button>
+        <button class="btn btn-ghost btn-sm" id="clear-deck-btn" type="button">Clear</button>
+      </div>
+      <div class="deck-count" id="deck-count">0 cards ready.</div>
+      <button class="btn btn-primary btn-block" id="start-setup-btn" type="button" style="margin-top:20px;">Open Lobby</button>
+      ${errorMsg ? `<div class="error-note">${errorMsg}</div>` : ''}
+      <div class="footer-note">Whoever taps "Open Lobby" first becomes the host and controls the game's pace.</div>
+    </section>
+  `));
+
+  const textarea = document.getElementById('deck-textarea');
+  function updateCount(){
+    const n = textarea.value.split('\n').map(s=>s.trim()).filter(Boolean).length;
+    document.getElementById('deck-count').textContent = n + (n===1?' card ready.':' cards ready.');
+  }
+  textarea.addEventListener('input', updateCount);
+  updateCount();
+
+  document.getElementById('team-list').addEventListener('input', (e)=>{
+    const idx = +e.target.dataset.idx;
+    if(e.target.dataset.role === 'name') localTeamRows[idx].name = e.target.value;
+    if(e.target.dataset.role === 'color') localTeamRows[idx].color = e.target.value;
+  });
+  document.getElementById('team-list').addEventListener('click', (e)=>{
+    if(e.target.dataset.role === 'remove'){
+      if(localTeamRows.length > 2){ localTeamRows.splice(+e.target.dataset.idx,1); renderSetup(); document.getElementById('deck-textarea').value = textarea.value; }
+      else alert('You need at least two teams.');
+    }
+  });
+  document.getElementById('add-team-btn').addEventListener('click', ()=>{
+    const preservedDeck = textarea.value;
+    localTeamRows.push({name:'Team ' + (localTeamRows.length+1), color: TEAM_COLORS[localTeamRows.length % TEAM_COLORS.length]});
+    renderSetup();
+    document.getElementById('deck-textarea').value = preservedDeck;
+  });
+  document.getElementById('load-example-btn').addEventListener('click', ()=>{
+    const existing = textarea.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const existingWords = existing.map(l=>l.split('::')[0].trim());
+    const toAdd = EXAMPLE_DECK.filter(([w])=>!existingWords.includes(w)).map(([w,d])=> w + ' :: ' + d);
+    textarea.value = (existing.concat(toAdd)).join('\n');
+    updateCount();
+  });
+  document.getElementById('clear-deck-btn').addEventListener('click', ()=>{ textarea.value=''; updateCount(); });
+
+  document.getElementById('start-setup-btn').addEventListener('click', async ()=>{
+    errorMsg='';
+    try{
+      await api('/api/setup', {
+        teamNames: localTeamRows.map(t=>t.name),
+        teamColors: localTeamRows.map(t=>t.color),
+        turnSeconds: parseInt(document.getElementById('turn-length').value,10) || 60,
+        deckText: textarea.value
+      });
+      const view = await api('/api/state');
+      lastView = view; render();
+    }catch(e){ errorMsg = e.message; renderSetup(); }
+  });
+}
+
+// ================= WAITING FOR HOST TO FINISH SETUP =================
+function renderWaitingForSetup(){
+  app.innerHTML = '';
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="status-pane">
+        <div class="status-emoji">🃏</div>
+        <div class="status-title">Waiting for the host</div>
+        <div class="status-sub">Someone is setting up teams and the deck. This screen will update automatically.</div>
+      </div>
+    </section>
+  `));
+}
+
+// ================= JOIN SCREEN =================
+function renderJoin(view){
+  app.innerHTML = '';
+  const teamButtons = view.teams.map(t => `
+    <button class="team-pick-btn" data-team="${t.index}" style="color:${t.color}">
+      <span class="team-pick-swatch" style="background:${t.color}"></span>${t.name}
+    </button>`).join('');
+
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="eyebrow"><span class="dot"></span>Join the Game</div>
+      <h1 class="display">You're in!</h1>
+      <p class="lead">Enter your name and pick a team.${view.isHost ? ' As host, you can also skip joining a team and just run the game.' : ''}</p>
+      <label class="field-label">Your name</label>
+      <input type="text" id="join-name" placeholder="e.g. Alex" maxlength="24">
+      <label class="field-label">Team</label>
+      <div class="join-team-pick" id="join-team-pick">${teamButtons}</div>
+      <button class="btn btn-primary btn-block" id="join-btn" type="button" style="margin-top:20px;">Join Team</button>
+      ${errorMsg ? `<div class="error-note">${errorMsg}</div>` : ''}
+    </section>
+  `));
+
+  document.getElementById('join-team-pick').addEventListener('click', (e)=>{
+    const btn = e.target.closest('.team-pick-btn');
+    if(!btn) return;
+    selectedJoinTeam = +btn.dataset.team;
+    Array.from(document.querySelectorAll('.team-pick-btn')).forEach(b=>b.classList.toggle('selected', +b.dataset.team === selectedJoinTeam));
+  });
+
+  document.getElementById('join-btn').addEventListener('click', async ()=>{
+    const name = document.getElementById('join-name').value.trim();
+    if(!name){ errorMsg = 'Enter your name.'; renderJoin(view); return; }
+    if(selectedJoinTeam === null){ errorMsg = 'Pick a team.'; renderJoin(view); return; }
+    errorMsg = '';
+    try{ await api('/api/join', {name, teamIndex: selectedJoinTeam}); const v = await api('/api/state'); lastView=v; render(); }
+    catch(e){ errorMsg = e.message; renderJoin(view); }
+  });
+}
+
+// ================= ROSTER (shared partial) =================
+function rosterHtml(view){
+  return `<div class="roster">${view.teams.map(t=>`
+    <div class="roster-team">
+      <div class="roster-team-head" style="color:${t.color}"><span class="mini-swatch" style="background:${t.color}"></span>${t.name}</div>
+      <ul class="roster-players">
+        ${t.players.length ? t.players.map(p=>`<li>${p}</li>`).join('') : '<li class="empty">No one yet</li>'}
+      </ul>
+    </div>`).join('')}
+  </div>`;
+}
+
+// ================= LOBBY =================
+function renderLobby(view){
+  app.innerHTML = '';
+  const canStart = view.teams.every(t=>t.players.length>0);
+  const teamButtons = view.teams.map(t => `
+    <button class="team-pick-btn" data-team="${t.index}" style="color:${t.color}">
+      <span class="team-pick-swatch" style="background:${t.color}"></span>${t.name}
+    </button>`).join('');
+
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="eyebrow"><span class="dot"></span>Lobby</div>
+      <h1 class="display">Get Ready</h1>
+      <p class="lead">${view.isHost ? 'Share your LAN address with everyone else, then start once every team has at least one player.' : 'Waiting for the host to start the game.'}</p>
+      ${rosterHtml(view)}
+      ${(view.isHost && !view.joined) ? `
+        <label class="field-label">Want to play too? Join a team</label>
+        <input type="text" id="host-join-name" placeholder="Your name" maxlength="24" style="margin-bottom:10px;">
+        <div class="join-team-pick" id="host-join-team-pick">${teamButtons}</div>
+        <button class="btn btn-ghost btn-block" id="host-join-btn" type="button" style="margin-top:10px;">Join Team</button>
+      ` : ''}
+      ${view.isHost
+        ? `<button class="btn btn-primary btn-block" id="start-game-btn" type="button" ${canStart?'':'disabled'} style="margin-top:16px;">${canStart ? 'Start Game' : 'Every team needs a player'}</button>`
+        : '<div class="status-pane" style="padding:10px;"><div class="status-emoji">⏳</div><div class="status-sub">Hang tight — the host will start the game soon.</div></div>'}
+      ${errorMsg ? `<div class="error-note">${errorMsg}</div>` : ''}
+    </section>
+  `));
+
+  if(view.isHost && !view.joined){
+    document.getElementById('host-join-team-pick').addEventListener('click', (e)=>{
+      const btn = e.target.closest('.team-pick-btn');
+      if(!btn) return;
+      selectedJoinTeam = +btn.dataset.team;
+      Array.from(document.querySelectorAll('#host-join-team-pick .team-pick-btn')).forEach(b=>b.classList.toggle('selected', +b.dataset.team === selectedJoinTeam));
+    });
+    document.getElementById('host-join-btn').addEventListener('click', async ()=>{
+      const name = document.getElementById('host-join-name').value.trim();
+      if(!name || selectedJoinTeam === null){ errorMsg = 'Enter a name and pick a team.'; renderLobby(view); return; }
+      errorMsg = '';
+      try{ await api('/api/join', {name, teamIndex: selectedJoinTeam}); const v = await api('/api/state'); lastView=v; render(); }
+      catch(e){ errorMsg = e.message; renderLobby(view); }
+    });
+  }
+
+  const startBtn = document.getElementById('start-game-btn');
+  if(startBtn) startBtn.addEventListener('click', async ()=>{
+    errorMsg='';
+    try{ await api('/api/start'); const v = await api('/api/state'); lastView=v; render(); }
+    catch(e){ errorMsg = e.message; renderLobby(view); }
+  });
+}
+
+// ================= INTRO =================
+function renderIntro(view){
+  app.innerHTML = '';
+  const iAmReader = view.isRevealer;
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="round-badge">${view.roundInfo.name} · ${view.roundInfo.sub}</div>
+      <div class="round-rules">${view.roundInfo.desc}</div>
+      <div class="status-pane" style="padding-top:6px;">
+        <div class="status-emoji">${iAmReader ? '👀' : '⏳'}</div>
+        <div class="status-title" style="color:${view.turnTeamColor}">${view.turnTeamName}'s turn</div>
+        <div class="status-sub">${iAmReader
+          ? "You're reading this turn — only you will see the cards."
+          : (view.myTeamIndex === view.turnTeamIndex
+              ? (view.revealerName || 'Your teammate') + ' is reading for your team. Get ready to guess!'
+              : (view.revealerName || 'Someone') + ' is reading for ' + view.turnTeamName + '.')}
+        </div>
+      </div>
+      ${iAmReader ? '<button class="btn btn-primary btn-block" id="begin-turn-btn" type="button">Start Turn</button>' : ''}
+      ${view.isHost && !iAmReader ? '<button class="btn btn-ghost btn-block" id="begin-turn-host-btn" type="button">Start turn for them</button>' : ''}
+    </section>
+  `));
+  const b1 = document.getElementById('begin-turn-btn');
+  if(b1) b1.addEventListener('click', async ()=>{ try{ await api('/api/beginTurn'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+  const b2 = document.getElementById('begin-turn-host-btn');
+  if(b2) b2.addEventListener('click', async ()=>{ try{ await api('/api/beginTurn'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+}
+
+// ================= PLAY =================
+const arcCircumference = 2 * Math.PI * 32;
+
+function renderPlay(view){
+  const iControl = view.canControlRevealerActions && view.currentCard;
+  const timeLeft = clientTimeLeft(view);
+  app.innerHTML = '';
+
+  if(iControl){
+    app.appendChild(el(`
+      <section class="frame">
+        <div class="play-top">
+          <div>
+            <div class="eyebrow"><span class="dot"></span>${view.roundInfo.name} · ${view.roundInfo.sub}</div>
+            <h2 class="display" style="font-size:22px; color:${view.turnTeamColor}">${view.turnTeamName}</h2>
+          </div>
+          <div class="timer-ring-wrap">
+            <svg width="72" height="72" viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="32" fill="none" stroke="#EFE7CE" stroke-width="7"/>
+              <circle id="timer-arc" cx="36" cy="36" r="32" fill="none" stroke="var(--red)" stroke-width="7" stroke-linecap="round"
+                transform="rotate(-90 36 36)"/>
+            </svg>
+            <div class="timer-num mono" id="timer-num">${timeLeft}</div>
+          </div>
+        </div>
+        <div class="deck-stack">
+          <div class="stack-shadow s2"></div>
+          <div class="stack-shadow"></div>
+          <div class="card-face"><div class="card-word">${view.currentCard.word}</div></div>
+        </div>
+        <p class="card-desc ${view.currentCard.desc ? '' : 'empty'}">${view.currentCard.desc || 'x'}</p>
+        <div class="remaining-note">${view.remainingCount} card${view.remainingCount===1?'':'s'} left this round</div>
+        <div class="action-row">
+          <button class="btn btn-skip" id="skip-btn" type="button">Skip →</button>
+          <button class="btn btn-correct" id="correct-btn" type="button">✓ Got it!</button>
+        </div>
+        <button class="end-turn-link" id="end-turn-btn" type="button">End turn early</button>
+      </section>
+    `));
+    const arc = document.getElementById('timer-arc');
+    const frac = Math.max(0, timeLeft / view.turnSeconds);
+    arc.style.strokeDasharray = arcCircumference;
+    arc.style.strokeDashoffset = arcCircumference * (1 - frac);
+
+    document.getElementById('correct-btn').addEventListener('click', async ()=>{ try{ await api('/api/correct'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+    document.getElementById('skip-btn').addEventListener('click', async ()=>{ try{ await api('/api/skip'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+    document.getElementById('end-turn-btn').addEventListener('click', async ()=>{ try{ await api('/api/endTurn'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+    return;
+  }
+
+  const onMyTeam = view.myTeamIndex === view.turnTeamIndex && view.myTeamIndex !== -1;
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="status-pane">
+        <div class="status-emoji">${onMyTeam ? '🗣️' : '👥'}</div>
+        <div class="status-title">${onMyTeam ? 'Your team is guessing!' : view.turnTeamName + ' is playing'}</div>
+        <div class="status-sub">${onMyTeam ? (view.revealerName || 'Your teammate') + ' can see the card and is describing it. Shout your guesses!' : (view.revealerName || 'Their reader') + ' is describing cards to ' + view.turnTeamName + '.'}</div>
+        <div class="timer-inline mono">${timeLeft}s</div>
+      </div>
+    </section>
+  `));
+}
+
+// ================= TURN RECAP =================
+function renderTurnRecap(view){
+  app.innerHTML = '';
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="eyebrow"><span class="dot"></span>Turn Over</div>
+      <h2 class="display" style="font-size:28px; color:${view.turnTeamColor}">${view.turnTeamName} got:</h2>
+      <ul class="got-list">
+        ${view.wonThisTurn.length ? view.wonThisTurn.map(w=>`<li>${w}</li>`).join('') : '<li style="background:none;color:#9a8f6f;">Nothing this time — tough round.</li>'}
+      </ul>
+      ${view.isHost
+        ? '<button class="btn btn-primary btn-block" id="next-turn-btn" type="button">Next Team\u2019s Turn</button>'
+        : '<div class="status-pane" style="padding:10px;"><div class="status-sub">Waiting for the host to continue...</div></div>'}
+    </section>
+  `));
+  const btn = document.getElementById('next-turn-btn');
+  if(btn) btn.addEventListener('click', async ()=>{ try{ await api('/api/nextTurn'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+}
+
+// ================= SCORE TABLE HELPER =================
+function scoreTableHtml(view, uptoRoundIdx, highlightRank){
+  const medals = ['🥇','🥈','🥉'];
+  const sorted = view.teams.slice().sort((a,b)=>{
+    const ta = a.scores.reduce((s,v)=>s+v,0), tb = b.scores.reduce((s,v)=>s+v,0);
+    return tb-ta;
+  });
+  let head = highlightRank ? '<th></th>' : '';
+  head += '<th>Team</th>';
+  for(let i=0;i<=uptoRoundIdx;i++) head += `<th>R${i+1}</th>`;
+  head += '<th>Total</th>';
+  const rows = sorted.map((t,rank)=>{
+    let total = 0;
+    let cells = highlightRank ? `<td class="rank-cell">${medals[rank] || (rank+1)+'.'}</td>` : '';
+    cells += `<td class="team-name-cell"><span class="mini-swatch" style="background:${t.color}"></span>${t.name}</td>`;
+    for(let i=0;i<=uptoRoundIdx;i++){ cells += `<td>${t.scores[i]}</td>`; total += t.scores[i]; }
+    cells += `<td class="total-cell">${total}</td>`;
+    return `<tr class="${highlightRank && rank===0 ? 'winner-row' : ''}">${cells}</tr>`;
+  }).join('');
+  return `<table class="score-table"><tr>${head}</tr>${rows}</table>`;
+}
+
+// ================= ROUND RECAP =================
+function renderRoundRecap(view){
+  app.innerHTML = '';
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="eyebrow"><span class="dot"></span>${view.roundInfo.name} Complete</div>
+      <h1 class="display" style="font-size:30px;">Scoreboard</h1>
+      ${scoreTableHtml(view, view.round-1, false)}
+      ${view.isHost
+        ? `<button class="btn btn-primary btn-block" id="next-round-btn" type="button">${view.round>=3 ? 'See Final Results' : 'Start Next Round'}</button>`
+        : '<div class="status-pane" style="padding:10px;"><div class="status-sub">Waiting for the host to continue...</div></div>'}
+    </section>
+  `));
+  const btn = document.getElementById('next-round-btn');
+  if(btn) btn.addEventListener('click', async ()=>{ try{ await api('/api/nextRound'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+}
+
+// ================= FINAL =================
+function renderFinal(view){
+  app.innerHTML = '';
+  const sorted = view.teams.slice().sort((a,b)=> b.scores.reduce((s,v)=>s+v,0) - a.scores.reduce((s,v)=>s+v,0));
+  const winner = sorted[0];
+  app.appendChild(el(`
+    <section class="frame">
+      <div class="winner-banner">
+        <div class="crown">👑</div>
+        <div class="eyebrow" style="color:#3a2a06; justify-content:center;">Game Over</div>
+        <h2 class="display">${winner.name} Wins</h2>
+      </div>
+      ${scoreTableHtml(view, 2, true)}
+      ${view.isHost
+        ? '<button class="btn btn-primary btn-block" id="play-again-btn" type="button">Play Again</button>'
+        : '<div class="status-pane" style="padding:10px;"><div class="status-sub">Waiting for the host to start a new game...</div></div>'}
+    </section>
+  `));
+  const btn = document.getElementById('play-again-btn');
+  if(btn) btn.addEventListener('click', async ()=>{ try{ await api('/api/playAgain'); const v=await api('/api/state'); lastView=v; render(); }catch(e){} });
+}
+
+// ================= ROUTER =================
+function render(){
+  const view = lastView;
+  if(!view) return;
+
+  if(view.phase === 'setup'){
+    renderSetup();
+    return;
+  }
+  if(!view.isHost && !view.joined && view.phase !== 'final'){
+    renderJoin(view);
+    return;
+  }
+  switch(view.phase){
+    case 'lobby': renderLobby(view); break;
+    case 'intro': renderIntro(view); break;
+    case 'play': renderPlay(view); break;
+    case 'turnRecap': renderTurnRecap(view); break;
+    case 'roundRecap': renderRoundRecap(view); break;
+    case 'final': renderFinal(view); break;
+    default: renderWaitingForSetup();
+  }
+}
+
+poll();
+})();
+</script>
+</body>
+</html>
