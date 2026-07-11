@@ -180,6 +180,11 @@ textarea{ resize:vertical; min-height:110px; line-height:1.5; }
   font-size:clamp(28px,7vw,42px); font-weight:800; color:var(--ink-text); line-height:1.1;
   word-break:break-word;
 }
+.card-desc{
+  text-align:center; font-size:14px; line-height:1.5; color:#5b6a5f; font-style:italic;
+  margin:0 0 16px; padding:0 6px; min-height:21px;
+}
+.card-desc.empty{ visibility:hidden; }
 .remaining-note{ text-align:center; font-size:13px; color:#8a9689; margin-bottom:16px; }
 
 .action-row{ display:flex; gap:12px; }
@@ -240,12 +245,13 @@ textarea{ resize:vertical; min-height:110px; line-height:1.5; }
     <input type="number" id="turn-length" value="60" min="15" max="180" step="5">
 
     <label class="field-label">The deck</label>
-    <textarea id="deck-textarea" placeholder="Type one card per line — people, places, things, movies, whatever you like..."></textarea>
+    <textarea id="deck-textarea" placeholder="One card per line. Add an optional hint after :: for the clue-giver to read, e.g.&#10;Albert Einstein :: Physicist famous for the theory of relativity"></textarea>
     <div class="deck-actions">
       <button class="btn btn-ghost btn-sm" id="load-example-btn" type="button">Load example deck (48 cards)</button>
       <button class="btn btn-ghost btn-sm" id="clear-deck-btn" type="button">Clear</button>
     </div>
     <div class="deck-count" id="deck-count">0 cards ready.</div>
+    <div class="deck-count" style="margin-top:2px;">Format: <code>Card name :: optional hint for the clue-giver</code></div>
 
     <button class="btn btn-primary btn-block" id="start-game-btn" type="button" style="margin-top:24px;">Start Round One</button>
   </section>
@@ -283,6 +289,7 @@ textarea{ resize:vertical; min-height:110px; line-height:1.5; }
         <div class="card-word" id="card-word">CARD</div>
       </div>
     </div>
+    <p class="card-desc" id="card-desc">A helpful hint about the card goes here.</p>
     <div class="remaining-note" id="remaining-note">14 cards left this round</div>
 
     <div class="action-row">
@@ -334,16 +341,54 @@ const ROUNDS = [
 ];
 
 const EXAMPLE_DECK = [
-  "Albert Einstein","The Eiffel Tower","Sherlock Holmes","Volcano","Pizza",
-  "Yoga","Cleopatra","The Great Wall of China","Dracula","Roller Coaster",
-  "William Shakespeare","Bigfoot","Scuba Diving","The Mona Lisa","Robin Hood",
-  "Marie Curie","Quicksand","Bagpipes","The Titanic","Sasquatch",
-  "Beekeeping","King Arthur","The Sahara Desert","Houdini","Origami",
-  "Leonardo da Vinci","Thunderstorm","Karate","The Loch Ness Monster","Bubble Wrap",
-  "Amelia Earhart","Stonehenge","Ninja","Popcorn","Vampire",
-  "Mount Everest","Jazz","The Wright Brothers","Piñata","Werewolf",
-  "Isaac Newton","Bermuda Triangle","Skydiving","Excalibur","Snowman",
-  "Julius Caesar","Hot Air Balloon","Zombie"
+  ["Albert Einstein","Physicist famous for the theory of relativity and wild hair"],
+  ["The Eiffel Tower","Iron lattice tower that defines the Paris skyline"],
+  ["Sherlock Holmes","Fictional detective known for his powers of deduction"],
+  ["Volcano","Mountain that can erupt with lava and ash"],
+  ["Pizza","Round baked dish topped with cheese and sauce"],
+  ["Yoga","Practice of stretching, breathing, and poses for calm"],
+  ["Cleopatra","Last active ruler of ancient Egypt"],
+  ["The Great Wall of China","Ancient fortification stretching thousands of miles"],
+  ["Dracula","Classic vampire count from Transylvania"],
+  ["Roller Coaster","Amusement park ride with steep drops and loops"],
+  ["William Shakespeare","Playwright who wrote Hamlet and Romeo and Juliet"],
+  ["Bigfoot","Legendary hairy creature said to roam the forest"],
+  ["Scuba Diving","Underwater activity using an oxygen tank"],
+  ["The Mona Lisa","Famous painting with a mysterious smile"],
+  ["Robin Hood","Legendary outlaw who steals from the rich"],
+  ["Marie Curie","Scientist who pioneered research on radioactivity"],
+  ["Quicksand","Loose wet sand that traps anything that steps in it"],
+  ["Bagpipes","Wind instrument famous in Scottish music"],
+  ["The Titanic","Ocean liner that sank after hitting an iceberg"],
+  ["Sasquatch","Another name for a legendary forest creature"],
+  ["Beekeeping","Hobby or job of raising bees for honey"],
+  ["King Arthur","Legendary king who pulled a sword from a stone"],
+  ["The Sahara Desert","Enormous hot sandy desert in Africa"],
+  ["Houdini","Famous escape artist and magician"],
+  ["Origami","Japanese art of paper folding"],
+  ["Leonardo da Vinci","Renaissance artist and inventor"],
+  ["Thunderstorm","Weather event with lightning and rain"],
+  ["Karate","Japanese martial art involving strikes and kicks"],
+  ["The Loch Ness Monster","Legendary creature said to live in a Scottish lake"],
+  ["Bubble Wrap","Plastic packing material people love to pop"],
+  ["Amelia Earhart","Pioneering aviator who vanished over the Pacific"],
+  ["Stonehenge","Ancient circle of standing stones in England"],
+  ["Ninja","Covert agent trained in stealth and combat"],
+  ["Popcorn","Snack made from kernels that puff up when heated"],
+  ["Vampire","Undead creature that feeds on blood"],
+  ["Mount Everest","Tallest mountain in the world"],
+  ["Jazz","Music genre known for improvisation"],
+  ["The Wright Brothers","Inventors of the first successful airplane"],
+  ["Piñata","Decorated container filled with candy, broken with a stick"],
+  ["Werewolf","Person who transforms into a wolf under a full moon"],
+  ["Isaac Newton","Scientist known for laws of motion and gravity"],
+  ["Bermuda Triangle","Region where ships and planes are said to vanish"],
+  ["Skydiving","Jumping from a plane and free-falling before a parachute opens"],
+  ["Excalibur","The legendary sword of King Arthur"],
+  ["Snowman","Figure built from packed snow, often with a carrot nose"],
+  ["Julius Caesar","Roman general and dictator"],
+  ["Hot Air Balloon","Aircraft that rises using heated air in a giant balloon"],
+  ["Zombie","Reanimated corpse that shuffles after the living"]
 ];
 
 // ---------------- State ----------------
@@ -397,15 +442,28 @@ addTeamRow('Team Two');
 document.getElementById('add-team-btn').addEventListener('click', ()=> addTeamRow());
 
 const deckTextarea = document.getElementById('deck-textarea');
+
+// Parses "Word :: optional hint" lines into {word, desc} objects
+function parseDeckText(text){
+  return text.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{
+    const parts = line.split('::');
+    const word = parts[0].trim();
+    const desc = parts.length > 1 ? parts.slice(1).join('::').trim() : '';
+    return { word, desc };
+  }).filter(c=>c.word);
+}
+
 function updateDeckCount(){
-  const n = deckTextarea.value.split('\n').map(s=>s.trim()).filter(Boolean).length;
+  const n = parseDeckText(deckTextarea.value).length;
   document.getElementById('deck-count').textContent = n + (n===1 ? ' card ready.' : ' cards ready.');
 }
 deckTextarea.addEventListener('input', updateDeckCount);
 document.getElementById('load-example-btn').addEventListener('click', ()=>{
-  const existing = deckTextarea.value.split('\n').map(s=>s.trim()).filter(Boolean);
-  const merged = existing.concat(EXAMPLE_DECK.filter(c=>!existing.includes(c)));
-  deckTextarea.value = merged.join('\n');
+  const existingWords = parseDeckText(deckTextarea.value).map(c=>c.word);
+  const toAdd = EXAMPLE_DECK.filter(([w])=>!existingWords.includes(w));
+  const lines = toAdd.map(([w,d])=> d ? (w + ' :: ' + d) : w);
+  const existingText = deckTextarea.value.trim();
+  deckTextarea.value = existingText ? (existingText + '\n' + lines.join('\n')) : lines.join('\n');
   updateDeckCount();
 });
 document.getElementById('clear-deck-btn').addEventListener('click', ()=>{
@@ -423,7 +481,7 @@ document.getElementById('start-game-btn').addEventListener('click', ()=>{
   }));
   if(teams.length < 2){ alert('Add at least two teams.'); return; }
 
-  let pool = deckTextarea.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  let pool = parseDeckText(deckTextarea.value);
   if(pool.length < 6){
     alert('Add at least 6 cards (or click "Load example deck") before starting.');
     return;
@@ -490,7 +548,11 @@ function renderCard(){
     endRound();
     return;
   }
-  document.getElementById('card-word').textContent = state.remaining[0];
+  const card = state.remaining[0];
+  document.getElementById('card-word').textContent = card.word;
+  const descEl = document.getElementById('card-desc');
+  descEl.textContent = card.desc || '';
+  descEl.classList.toggle('empty', !card.desc);
   document.getElementById('remaining-note').textContent =
     state.remaining.length + ' card' + (state.remaining.length===1?'':'s') + ' left this round';
 }
@@ -545,7 +607,7 @@ function endTurn(){
     list.className = 'got-list';
     state.wonThisTurn.forEach(c=>{
       const li = document.createElement('li');
-      li.textContent = c;
+      li.textContent = c.word;
       list.appendChild(li);
     });
   }
